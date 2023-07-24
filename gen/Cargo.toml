@@ -1,0 +1,12 @@
+[package]
+name = "gen"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "gen"
+
+[dependencies]
+bindgen = { version = "0.57.0", default-features = true }
+clap = "2.33.0"
+walkdir = "2"
