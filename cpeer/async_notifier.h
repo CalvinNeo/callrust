@@ -39,9 +39,9 @@ struct AsyncNotifier
     };
     virtual Status blockedWaitFor(const std::chrono::milliseconds & duration)
     {
-        return blockedWaitUtil(std::chrono::system_clock::now() + duration);
+        return blockedWaitUtil(std::chrono::steady_clock::now() + duration);
     }
-    virtual Status blockedWaitUtil(const std::chrono::time_point &) = 0;
+    virtual Status blockedWaitUtil(const std::chrono::time_point<std::chrono::steady_clock> &) = 0;
     virtual void wake() = 0;
     virtual ~AsyncNotifier() = default;
 };
@@ -50,17 +50,17 @@ struct Notifier final : AsyncNotifier
 {
     // Usually sender invoke `wake`, receiver invoke `blockedWaitUtil`
     // NOT thread safe
-    Status blockedWaitUtil(const std::chrono::time_point & time_point) override {
+    Status blockedWaitUtil(const std::chrono::time_point<std::chrono::steady_clock> & time_point) override {
         // if flag from false to false, wait for notification.
         // if flag from true to false, do nothing.
         auto res = AsyncNotifier::Status::Normal;
         if (!is_awake->exchange(false, std::memory_order_acq_rel))
         {
             {
-                auto lock = std::unique_lock<std::mutex>(mutex);
+                auto lock = std::unique_lock<std::mutex>(*mutex);
                 if (!is_awake->load(std::memory_order_acquire))
                 {
-                    if (cv.wait_until(lock, time_point) == std::cv_status::timeout)
+                    if (cv->wait_until(lock, time_point) == std::cv_status::timeout)
                         res = AsyncNotifier::Status::Timeout;
                 }
             }
@@ -78,8 +78,8 @@ struct Notifier final : AsyncNotifier
         if (!is_awake->exchange(true, std::memory_order_acq_rel))
         {
             // wake up notifier
-            auto lock = std::scoped_lock<std::mutex>(mutex);
-            cv.notify_one();
+            auto lock = std::scoped_lock<std::mutex>(*mutex);
+            cv->notify_one();
         }
     }
 
@@ -97,35 +97,38 @@ struct AsyncWaker
     using NotifierPtr = std::shared_ptr<Notifier>;
 
     // proxy will call this function to invoke `AsyncNotifier::wake`
-    static void wake(RawVoidPtr notifier_ptr) {
+    static void wake(FFI::RawVoidPtr notifier_ptr) {
         auto & notifier = *reinterpret_cast<AsyncNotifier *>(notifier_ptr);
         notifier.wake();
     }
 
     // create a `Notifier` in heap & let proxy wrap it and return as rust ptr with specific type.
-    explicit AsyncWaker(const FFIContext & ctx) AsyncWaker(ctx, new AsyncWaker::Notifier{}) {
-
-    }
-
-    AsyncWaker(const FFIContext & ctx, AsyncNotifier * notifier_ptr) : 
-    inner(ctx.makeAsyncWaker(AsyncWaker::wake, GenRawCppPtr(notifier_, RawCppPtrTypeImpl::WakerNotifier))),
-    notifier(*notifier_)
+    explicit AsyncWaker(const FFI::FFIContext & ctx) :
+        AsyncWaker(ctx, new Notifier{}) 
     {
 
     }
 
-    AsyncNotifier::Status waitUtil(std::chrono::time_point) {
+    AsyncWaker(const FFI::FFIContext & ctx, AsyncNotifier * notifier_ptr) : 
+        inner(ctx.makeAsyncWaker(AsyncWaker::wake, 
+                                 FFI::ffi_raw_cpp_ptr(notifier_ptr, FFI::RawCppPtrTypeImpl::WakerNotifier))),
+        notifier(*notifier_ptr)
+    {
+
+    }
+
+    AsyncNotifier::Status waitUtil(std::chrono::time_point<std::chrono::steady_clock> time_point) {
         return notifier.blockedWaitUtil(time_point);
     }
 
-    RawVoidPtr getRaw() const {
+    FFI::RawVoidPtr getRaw() const {
         return inner.ptr;
     }
 
 private:
     // Asyncwaker on Rust's side.
     // This waker can be used to construct a Context as argument for Future::poll.
-    RawRustPtrWrap inner;
+    FFI::RawRustPtrWrap inner;
     // Always in heap and is maintained as shared obj.
     AsyncNotifier & notifier;
 };

@@ -23,13 +23,13 @@ pub struct TimerTask {
     future: BoxFuture<'static, ()>,
 }
 
-pub extern "C" fn ffi_make_timer_task(millis: u64) -> RawRustPtr {
+pub extern "C" fn ffi_make_timer_task(millis: u64) -> RustFuture {
     let _g = GLOBAL_RUNTIME.enter();
     let fut = async move { tokio::time::sleep(std::time::Duration::from_millis(millis)).await };
     let task = TimerTask {
         future: Box::pin(fut),
     };
-    RawRustPtr {
+    RustFuture {
         ptr: Box::into_raw(Box::new(task)) as *mut _,
         type_: RawRustPtrTypeEnum::TimerTask.into(),
     }
@@ -61,4 +61,43 @@ pub unsafe extern "C" fn ffi_poll_timer_task(task_ptr: RawVoidPtr, waker: RawVoi
         func(cx)
     };
     if res.is_some() { 1 } else { 0 }
+}
+
+#[no_mangle]
+pub extern "C" fn ffi_println(buff: BaseBuffView) {
+    unsafe {
+        println!("{}", std::str::from_utf8_unchecked(buff.to_slice()));
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ffi_invoke_test() {
+    unsafe {
+        let jh = std::thread::spawn(||{
+
+        });
+    }
+}
+
+pub fn init_global_c_handle() -> *const CHandle {
+    Box::into_raw(Box::new(CHandle {
+        rust_ctx: std::ptr::null(),
+        fn_gc_rust_ptr: Some(ffi_gc_rust_ptr),
+        fn_println: Some(ffi_println),
+        fn_make_async_waker: Some(ffi_make_async_waker),
+        fn_invoke_test: Some(ffi_invoke_test),
+    }))
+}
+
+// TODO Avoid Undefined symbols here.
+// extern "C" {
+//     #[no_mangle]
+//     fn set_global_c_handle(ptr: RawVoidPtr);
+// }
+
+#[no_mangle]
+pub extern "C" fn set_global_rust_handle(ptr: RawVoidPtr) -> RawVoidPtr {
+    init_global_rust_handle(ptr as *const u8);
+    let c_handle = init_global_c_handle();
+    c_handle as RawVoidPtr
 }

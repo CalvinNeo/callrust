@@ -77,20 +77,20 @@ impl RawCppPtr {
 
 static mut GLOBAL_FFI_CONTEXT_PTR: isize = 0;
 
-pub fn init_global_ffi_context(p: *const u8) {
+pub fn init_global_rust_handle(p: *const u8) {
     unsafe {
         let ptr = &GLOBAL_FFI_CONTEXT_PTR as *const _ as *mut _;
         *ptr = p;
     }
 }
 
-pub fn gen_global_ffi_context(ptr: isize) -> &'static RustHandle {
+pub fn gen_global_rust_handle(ptr: isize) -> &'static RustHandle {
     debug_assert!(ptr != 0);
     unsafe { &(*(ptr as *const RustHandle)) }
 }
 
-pub fn get_global_ffi_context() -> &'static RustHandle {
-    gen_global_ffi_context(unsafe { GLOBAL_FFI_CONTEXT_PTR })
+pub fn get_global_rust_handle() -> &'static RustHandle {
+    gen_global_rust_handle(unsafe { GLOBAL_FFI_CONTEXT_PTR })
 }
 
 #[macro_export]
@@ -109,7 +109,7 @@ macro_rules! call_by_ffi_name {
 impl Drop for RawCppPtr {
     fn drop(&mut self) {
         if !self.is_null() {
-            let ctx = get_global_ffi_context();
+            let ctx = get_global_rust_handle();
             call_by_ffi_name!(ctx.fn_gc_raw_cpp_ptr, self.ptr, self.type_)
         }
     }
@@ -152,7 +152,7 @@ impl Drop for RawCppPtrTuple {
         // [len-1] RawCppPtr to S
         unsafe {
             if !self.is_null() {
-                let ctx = get_global_ffi_context();
+                let ctx = get_global_rust_handle();
                 let len = self.len;
                 // Delete all `void *`.
                 for i in 0..len {
@@ -197,7 +197,7 @@ impl Drop for RawCppPtrArr {
         // [len-1] RawVoidPtr
         unsafe {
             if !self.is_null() {
-                let ctx = get_global_ffi_context();
+                let ctx = get_global_rust_handle();
                 let len = self.len;
                 // Delete all `T *`
                 for i in 0..len {
@@ -227,7 +227,7 @@ impl Drop for RawCppPtrArr {
 impl Drop for RawCppPtrCarr {
     fn drop(&mut self) {
         if !self.inner.is_null() {
-            let ctx = get_global_ffi_context();
+            let ctx = get_global_rust_handle();
             call_by_ffi_name!(
                 ctx.fn_gc_raw_cpp_ptr_carr,
                 self.inner as RawVoidPtr,

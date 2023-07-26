@@ -5,7 +5,7 @@ use int_enum::IntEnum;
 use crate::{ffi::*, ffi_make_async_waker, interfaces::root::FFI::*};
 
 static START: std::sync::Once = std::sync::Once::new();
-pub fn init_mock_global_ffi_context() {
+pub fn init_mock_global_rust_handle() {
     START.call_once(|| {
         let res = Box::new(RustHandle {
             c_ctx: std::ptr::null(),
@@ -15,7 +15,7 @@ pub fn init_mock_global_ffi_context() {
             fn_gc_special_raw_cpp_ptr: Some(ffi_gc_special_raw_cpp_ptr),
         });
         let raw = Box::into_raw(res);
-        init_global_ffi_context(raw as *const RustHandle as *const u8)
+        init_global_rust_handle(raw as *const RustHandle as *const u8)
     });
 }
 

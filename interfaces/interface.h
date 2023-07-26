@@ -26,6 +26,12 @@ struct RawRustPtr {
     RawRustPtrType type;
 };
 
+using RustFuture = RawRustPtr;
+
+// struct RustFuture : RawRustPtr {
+
+// };
+
 enum class SpecialCppPtrType : uint32_t {
   None = 0,
   TupleOfRawCppPtr = 1,
@@ -43,7 +49,6 @@ struct RawCppPtrCarr {
     RawCppPtrType type;
 };
 
-
 // An tuple of pointers, like `void **`,
 // Can be used to represent structures.
 struct RawCppPtrTuple {
@@ -59,11 +64,14 @@ struct RawCppPtrArr {
     RawCppPtrType type;
 };
 
-
 struct CHandle {
     ConstRawVoidPtr rust_ctx;
 
     void (*fn_gc_rust_ptr)(RawVoidPtr, RawRustPtrType);
+    void (*fn_println)(BaseBuffView);
+    RawRustPtr (*fn_make_async_waker)(void (*wake_fn)(RawVoidPtr),
+                                      RawCppPtr data);
+    void (*fn_invoke_test)();
 };
 
 struct RustHandle {
@@ -75,4 +83,6 @@ struct RustHandle {
     void (*fn_gc_special_raw_cpp_ptr)(RawVoidPtr, uint64_t, SpecialCppPtrType);
 };
 
+extern "C" {
+}
 }

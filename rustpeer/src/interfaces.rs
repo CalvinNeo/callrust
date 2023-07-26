@@ -25,6 +25,7 @@ pub mod root {
             pub ptr: root::FFI::RawVoidPtr,
             pub type_: root::FFI::RawRustPtrType,
         }
+        pub type RustFuture = root::FFI::RawRustPtr;
         #[repr(u32)]
         #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
         pub enum SpecialCppPtrType {
@@ -65,6 +66,17 @@ pub mod root {
             pub fn_gc_rust_ptr: ::std::option::Option<
                 unsafe extern "C" fn(arg1: root::FFI::RawVoidPtr, arg2: root::FFI::RawRustPtrType),
             >,
+            pub fn_println:
+                ::std::option::Option<unsafe extern "C" fn(arg1: root::FFI::BaseBuffView)>,
+            pub fn_make_async_waker: ::std::option::Option<
+                unsafe extern "C" fn(
+                    wake_fn: ::std::option::Option<
+                        unsafe extern "C" fn(arg1: root::FFI::RawVoidPtr),
+                    >,
+                    data: root::FFI::RawCppPtr,
+                ) -> root::FFI::RawRustPtr,
+            >,
+            pub fn_invoke_test: ::std::option::Option<unsafe extern "C" fn()>,
         }
         #[repr(C)]
         #[derive(Debug)]
